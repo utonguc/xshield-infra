@@ -4,10 +4,10 @@ version: "3.9"
 #  xShield Production Infrastructure
 #
 #  VPS directory layout (tüm repolar burada):
-#    ~/xshield/web/       ← utonguc/xshield-web
-#    ~/xshield/eclinic/   ← utonguc/eclinic
-#    ~/xshield/signed/    ← utonguc/signed
-#    ~/xshield/infra/     ← utonguc/xshield-infra  (bu dosya)
+#    ~/xshield/web/                  ← utonguc/xshield-web
+#    ~/xshield/clinic/clinic-platform ← utonguc/eclinic  (geçici; ileride eclinic/ olacak)
+#    ~/xshield/signed-landing/       ← utonguc/signed landing  (geçici; ileride signed/landing/ olacak)
+#    ~/xshield/infra/                ← utonguc/xshield-infra  (bu dosya)
 #
 #  Yeni ürün eklemek için:
 #    1. Ürünün reposunu pull et
@@ -48,7 +48,7 @@ services:
 
   clinic_backend:
     build:
-      context: ../eclinic/backend
+      context: ../clinic/clinic-platform/backend
     container_name: clinic_backend
     restart: unless-stopped
     environment:
@@ -76,7 +76,7 @@ services:
 
   clinic_frontend:
     build:
-      context: ../eclinic/frontend
+      context: ../clinic/clinic-platform/frontend
     container_name: clinic_frontend
     restart: unless-stopped
     environment:
@@ -99,7 +99,7 @@ services:
   # ── Signed Landing ────────────────────────
   signed_landing:
     build:
-      context: ../signed/landing
+      context: ../signed-landing
     container_name: signed_landing
     restart: unless-stopped
     environment:
