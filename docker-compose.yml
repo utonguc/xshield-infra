@@ -80,7 +80,7 @@ services:
     container_name: clinic_frontend
     restart: unless-stopped
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       NEXT_PUBLIC_API_BASE_URL: https://eclinic.xshield.com.tr/api
       API_BASE_URL: http://clinic_backend:8080/api
       GROQ_API_KEY: ${GROQ_API_KEY:-}
