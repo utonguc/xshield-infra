@@ -1,0 +1,132 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────
+#  xShield Production Infrastructure
+#
+#  VPS directory layout (tüm repolar burada):
+#    ~/xshield/web/       ← utonguc/xshield-web
+#    ~/xshield/eclinic/   ← utonguc/eclinic
+#    ~/xshield/signed/    ← utonguc/signed
+#    ~/xshield/infra/     ← utonguc/xshield-infra  (bu dosya)
+#
+#  Yeni ürün eklemek için:
+#    1. Ürünün reposunu pull et
+#    2. Bu dosyaya servis ekle
+#    3. nginx/prod.conf'a domain bloğu ekle
+#    4. docker compose up -d --build <servis-adi>
+#    5. docker compose up -d --force-recreate nginx
+# ─────────────────────────────────────────────
+
+services:
+
+  # ── e-Clinic ──────────────────────────────
+  clinic_db:
+    image: postgres:16
+    container_name: clinic_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CLINIC_DB_NAME:-clinicdb}
+      POSTGRES_USER: ${CLINIC_DB_USER:-clinicuser}
+      POSTGRES_PASSWORD: ${CLINIC_DB_PASS:-clinicpass}
+    volumes:
+      - clinic_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CLINIC_DB_USER:-clinicuser} -d ${CLINIC_DB_NAME:-clinicdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  clinic_redis:
+    image: redis:7
+    container_name: clinic_redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  clinic_backend:
+    build:
+      context: ../eclinic/backend
+    container_name: clinic_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=clinic_db;Port=5432;Database=${CLINIC_DB_NAME:-clinicdb};Username=${CLINIC_DB_USER:-clinicuser};Password=${CLINIC_DB_PASS:-clinicpass}
+      Jwt__Key: ${CLINIC_JWT_KEY}
+      Jwt__Issuer: clinic-platform
+      Jwt__Audience: clinic-platform-users
+      Jwt__ExpireMinutes: 120
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__UseSsl: ${SMTP_SSL:-true}
+      Smtp__UserName: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASS:-}
+      Smtp__FromAddress: ${SMTP_FROM:-}
+      Smtp__FromName: ${SMTP_FROM_NAME:-EstetixOS}
+    depends_on:
+      clinic_db:
+        condition: service_healthy
+      clinic_redis:
+        condition: service_healthy
+    volumes:
+      - clinic_uploads:/app/uploads
+
+  clinic_frontend:
+    build:
+      context: ../eclinic/frontend
+    container_name: clinic_frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: https://eclinic.xshield.com.tr/api
+      API_BASE_URL: http://clinic_backend:8080/api
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+    depends_on:
+      - clinic_backend
+
+  # ── xShield Web ───────────────────────────
+  xshield_web:
+    build:
+      context: ../web
+    container_name: xshield_web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+
+  # ── Signed Landing ────────────────────────
+  signed_landing:
+    build:
+      context: ../signed/landing
+    container_name: signed_landing
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+
+  # ── nginx (ortak reverse proxy) ──────────
+  nginx:
+    image: nginx:stable
+    container_name: xshield_nginx
+    restart: unless-stopped
+    depends_on:
+      - clinic_frontend
+      - clinic_backend
+      - xshield_web
+      - signed_landing
+    volumes:
+      - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+
+volumes:
+  clinic_postgres_data:
+  clinic_uploads:
+
+networks:
+  default:
+    name: xshield-net
+    external: true
