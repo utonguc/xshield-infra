@@ -77,6 +77,8 @@ services:
   eclinic_frontend:
     build:
       context: ../eclinic/clinic/clinic-platform/frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: https://eclinic.xshield.com.tr/api
     container_name: eclinic_frontend
     restart: unless-stopped
     environment:
