@@ -3,14 +3,14 @@ version: "3.9"
 # ─────────────────────────────────────────────
 #  xShield Production Infrastructure
 #
-#  VPS directory layout (tüm repolar burada):
-#    ~/xshield/web/                  ← utonguc/xshield-web
-#    ~/xshield/clinic/clinic-platform ← utonguc/eclinic  (geçici; ileride eclinic/ olacak)
-#    ~/xshield/signed-landing/       ← utonguc/signed landing  (geçici; ileride signed/landing/ olacak)
-#    ~/xshield/infra/                ← utonguc/xshield-infra  (bu dosya)
+#  VPS dizin yapısı:
+#    ~/xshield/web/      ← utonguc/xshield      (xshield.com.tr)
+#    ~/xshield/eclinic/  ← utonguc/eclinic       (e-Clinic ürünü)
+#    ~/xshield/signed/   ← utonguc/signed        (Signed ürünü)
+#    ~/xshield/infra/    ← utonguc/xshield-infra (bu dosya)
 #
 #  Yeni ürün eklemek için:
-#    1. Ürünün reposunu pull et
+#    1. ~/xshield/<urun>/ dizinine repo'yu çek
 #    2. Bu dosyaya servis ekle
 #    3. nginx/prod.conf'a domain bloğu ekle
 #    4. docker compose up -d --build <servis-adi>
@@ -20,25 +20,25 @@ version: "3.9"
 services:
 
   # ── e-Clinic ──────────────────────────────
-  clinic_db:
+  eclinic_db:
     image: postgres:16
-    container_name: clinic_db
+    container_name: eclinic_db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${CLINIC_DB_NAME:-clinicdb}
       POSTGRES_USER: ${CLINIC_DB_USER:-clinicuser}
       POSTGRES_PASSWORD: ${CLINIC_DB_PASS:-clinicpass}
     volumes:
-      - clinic_postgres_data:/var/lib/postgresql/data
+      - eclinic_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${CLINIC_DB_USER:-clinicuser} -d ${CLINIC_DB_NAME:-clinicdb}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  clinic_redis:
+  eclinic_redis:
     image: redis:7
-    container_name: clinic_redis
+    container_name: eclinic_redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -46,15 +46,15 @@ services:
       timeout: 5s
       retries: 5
 
-  clinic_backend:
+  eclinic_backend:
     build:
-      context: ../clinic/clinic-platform/backend
-    container_name: clinic_backend
+      context: ../eclinic/backend
+    container_name: eclinic_backend
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: Host=clinic_db;Port=5432;Database=${CLINIC_DB_NAME:-clinicdb};Username=${CLINIC_DB_USER:-clinicuser};Password=${CLINIC_DB_PASS:-clinicpass}
+      ConnectionStrings__DefaultConnection: Host=eclinic_db;Port=5432;Database=${CLINIC_DB_NAME:-clinicdb};Username=${CLINIC_DB_USER:-clinicuser};Password=${CLINIC_DB_PASS:-clinicpass}
       Jwt__Key: ${CLINIC_JWT_KEY}
       Jwt__Issuer: clinic-platform
       Jwt__Audience: clinic-platform-users
@@ -65,27 +65,27 @@ services:
       Smtp__UserName: ${SMTP_USER:-}
       Smtp__Password: ${SMTP_PASS:-}
       Smtp__FromAddress: ${SMTP_FROM:-}
-      Smtp__FromName: ${SMTP_FROM_NAME:-EstetixOS}
+      Smtp__FromName: ${SMTP_FROM_NAME:-xShield e-Clinic}
     depends_on:
-      clinic_db:
+      eclinic_db:
         condition: service_healthy
-      clinic_redis:
+      eclinic_redis:
         condition: service_healthy
     volumes:
-      - clinic_uploads:/app/uploads
+      - eclinic_uploads:/app/uploads
 
-  clinic_frontend:
+  eclinic_frontend:
     build:
-      context: ../clinic/clinic-platform/frontend
-    container_name: clinic_frontend
+      context: ../eclinic/frontend
+    container_name: eclinic_frontend
     restart: unless-stopped
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       NEXT_PUBLIC_API_BASE_URL: https://eclinic.xshield.com.tr/api
-      API_BASE_URL: http://clinic_backend:8080/api
+      API_BASE_URL: http://eclinic_backend:8080/api
       GROQ_API_KEY: ${GROQ_API_KEY:-}
     depends_on:
-      - clinic_backend
+      - eclinic_backend
 
   # ── xShield Web ───────────────────────────
   xshield_web:
@@ -99,7 +99,7 @@ services:
   # ── Signed Landing ────────────────────────
   signed_landing:
     build:
-      context: ../signed-landing
+      context: ../signed/landing
     container_name: signed_landing
     restart: unless-stopped
     environment:
@@ -111,8 +111,8 @@ services:
     container_name: xshield_nginx
     restart: unless-stopped
     depends_on:
-      - clinic_frontend
-      - clinic_backend
+      - eclinic_frontend
+      - eclinic_backend
       - xshield_web
       - signed_landing
     volumes:
@@ -123,8 +123,12 @@ services:
       - "443:443"
 
 volumes:
-  clinic_postgres_data:
-  clinic_uploads:
+  eclinic_postgres_data:
+    external: true
+    name: clinic-platform_postgres_data
+  eclinic_uploads:
+    external: true
+    name: clinic-platform_uploads_data
 
 networks:
   default:
