@@ -48,7 +48,7 @@ services:
 
   eclinic_backend:
     build:
-      context: ../eclinic/backend
+      context: ../eclinic/clinic/clinic-platform/backend
     container_name: eclinic_backend
     restart: unless-stopped
     environment:
@@ -76,7 +76,7 @@ services:
 
   eclinic_frontend:
     build:
-      context: ../eclinic/frontend
+      context: ../eclinic/clinic/clinic-platform/frontend
     container_name: eclinic_frontend
     restart: unless-stopped
     environment:
@@ -90,7 +90,7 @@ services:
   # ── xShield Web ───────────────────────────
   xshield_web:
     build:
-      context: ../web
+      context: ../eclinic
     container_name: xshield_web
     restart: unless-stopped
     environment:
