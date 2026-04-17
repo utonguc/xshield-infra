@@ -125,7 +125,7 @@ services:
 volumes:
   eclinic_postgres_data:
     external: true
-    name: clinic-platform_postgres_data
+    name: clinic-platform_postgres_prod_data
   eclinic_uploads:
     external: true
     name: clinic-platform_uploads_data
