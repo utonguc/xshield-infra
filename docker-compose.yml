@@ -139,7 +139,7 @@ services:
       JWT_SECRET: ${SIGNED_JWT_SECRET:-change-this-jwt-secret-in-production}
       ADMIN_EMAIL: ${SIGNED_ADMIN_EMAIL:-admin@xshield.com.tr}
       ADMIN_PASSWORD: ${SIGNED_ADMIN_PASS:-changeme}
-      PUBLIC_URL: https://app.signed.xshield.com.tr
+      PUBLIC_URL: https://appsigned.xshield.com.tr
       PORTAL_TOKEN_HOURS: "48"
     depends_on:
       signed_db:
