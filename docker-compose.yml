@@ -108,6 +108,54 @@ services:
     environment:
       NODE_ENV: production
 
+  # ── Signed DB ─────────────────────────────
+  signed_db:
+    image: postgres:15
+    container_name: signed_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: signature
+      POSTGRES_USER: signature_user
+      POSTGRES_PASSWORD: ${SIGNED_DB_PASS:-signature_pass}
+    volumes:
+      - signed_pgdata:/var/lib/postgresql/data
+      - ../signed/init_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ../signed/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U signature_user -d signature"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Signed API ────────────────────────────
+  signed_api:
+    build:
+      context: ../signed/signature-core
+    container_name: signed_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://signature_user:${SIGNED_DB_PASS:-signature_pass}@signed_db:5432/signature
+      SIGNATURE_API_KEY: ${SIGNED_API_KEY:-change-in-prod}
+      JWT_SECRET: ${SIGNED_JWT_SECRET:-change-this-jwt-secret-in-production}
+      ADMIN_EMAIL: ${SIGNED_ADMIN_EMAIL:-admin@xshield.com.tr}
+      ADMIN_PASSWORD: ${SIGNED_ADMIN_PASS:-changeme}
+      PUBLIC_URL: https://app.signed.xshield.com.tr
+      PORTAL_TOKEN_HOURS: "48"
+    depends_on:
+      signed_db:
+        condition: service_healthy
+
+  # ── Signed Panel ──────────────────────────
+  signed_panel:
+    build:
+      context: ../signed/panel
+    container_name: signed_panel
+    restart: unless-stopped
+    environment:
+      API_URL: http://signed_api:5000
+    depends_on:
+      - signed_api
+
   # ── nginx (ortak reverse proxy) ──────────
   nginx:
     image: nginx:stable
@@ -118,6 +166,7 @@ services:
       - eclinic_backend
       - xshield_web
       - signed_landing
+      - signed_panel
     volumes:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
@@ -132,6 +181,7 @@ volumes:
   eclinic_uploads:
     external: true
     name: clinic-platform_uploads_data
+  signed_pgdata:
 
 networks:
   default:
