@@ -7,6 +7,7 @@ version: "3.9"
 #    ~/xshield/web/      ← utonguc/xshield      (xshield.com.tr)
 #    ~/xshield/eclinic/  ← utonguc/eclinic       (e-Clinic ürünü)
 #    ~/xshield/signed/   ← utonguc/signed        (Signed ürünü)
+#    ~/xshield/xcut/     ← utonguc/xcut          (xCut ürünü)
 #    ~/xshield/infra/    ← utonguc/xshield-infra (bu dosya)
 #
 #  Yeni ürün eklemek için:
@@ -156,6 +157,65 @@ services:
     depends_on:
       - signed_api
 
+  # ── xCut ──────────────────────────────────
+  xcut_db:
+    image: postgres:16
+    container_name: xcut_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${XCUT_DB_NAME:-xcutdb}
+      POSTGRES_USER: ${XCUT_DB_USER:-xcutuser}
+      POSTGRES_PASSWORD: ${XCUT_DB_PASS:-xcutpass}
+    volumes:
+      - xcut_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${XCUT_DB_USER:-xcutuser} -d ${XCUT_DB_NAME:-xcutdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  xcut_backend:
+    build:
+      context: ../xcut/backend
+    container_name: xcut_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=xcut_db;Port=5432;Database=${XCUT_DB_NAME:-xcutdb};Username=${XCUT_DB_USER:-xcutuser};Password=${XCUT_DB_PASS:-xcutpass}
+      Jwt__Key: ${XCUT_JWT_KEY}
+      Jwt__Issuer: xcut-platform
+      Jwt__Audience: xcut-platform-users
+      Jwt__ExpireMinutes: 120
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__UseSsl: ${SMTP_SSL:-true}
+      Smtp__UserName: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASS:-}
+      Smtp__FromAddress: ${SMTP_FROM:-}
+      Smtp__FromName: ${SMTP_FROM_NAME:-xCut}
+    depends_on:
+      xcut_db:
+        condition: service_healthy
+    volumes:
+      - xcut_uploads:/app/uploads
+
+  xcut_frontend:
+    build:
+      context: ../xcut/frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: https://xcut.xshield.com.tr/api
+        NEXT_PUBLIC_BUILD_VERSION: v1.0.0
+    container_name: xcut_frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: https://xcut.xshield.com.tr/api
+      API_BASE_URL: http://xcut_backend:8080/api
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+    depends_on:
+      - xcut_backend
+
   # ── nginx (ortak reverse proxy) ──────────
   nginx:
     image: nginx:stable
@@ -167,6 +227,8 @@ services:
       - xshield_web
       - signed_landing
       - signed_panel
+      - xcut_frontend
+      - xcut_backend
     volumes:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
@@ -182,6 +244,8 @@ volumes:
     external: true
     name: clinic-platform_uploads_data
   signed_pgdata:
+  xcut_pgdata:
+  xcut_uploads:
 
 networks:
   default:
