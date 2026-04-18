@@ -94,7 +94,7 @@ services:
   # ── xShield Web ───────────────────────────
   xshield_web:
     build:
-      context: ../eclinic
+      context: ../web
     container_name: xshield_web
     restart: unless-stopped
     environment:
