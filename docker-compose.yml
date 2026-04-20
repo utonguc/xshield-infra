@@ -222,6 +222,49 @@ services:
     depends_on:
       - xcut_backend
 
+  # ── xSignage ──────────────────────────────
+  signage_db:
+    image: postgres:16
+    container_name: signage_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${SIGNAGE_DB_NAME:-signage}
+      POSTGRES_USER:     ${SIGNAGE_DB_USER:-signage_user}
+      POSTGRES_PASSWORD: ${SIGNAGE_DB_PASS:-signage_pass}
+    volumes:
+      - signage_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SIGNAGE_DB_USER:-signage_user} -d ${SIGNAGE_DB_NAME:-signage}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  signage_api:
+    build:
+      context: ../signage/backend
+    container_name: signage_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL:   postgresql://${SIGNAGE_DB_USER:-signage_user}:${SIGNAGE_DB_PASS:-signage_pass}@signage_db:5432/${SIGNAGE_DB_NAME:-signage}
+      JWT_SECRET:     ${SIGNAGE_JWT_SECRET:-change-in-production}
+      ADMIN_EMAIL:    ${SIGNAGE_ADMIN_EMAIL:-admin@xshield.com.tr}
+      ADMIN_PASSWORD: ${SIGNAGE_ADMIN_PASS:-changeme}
+    depends_on:
+      signage_db:
+        condition: service_healthy
+    volumes:
+      - signage_uploads:/app/uploads
+
+  signage_panel:
+    build:
+      context: ../signage/panel
+    container_name: signage_panel
+    restart: unless-stopped
+    environment:
+      API_URL: http://signage_api:8000
+    depends_on:
+      - signage_api
+
   # ── nginx (ortak reverse proxy) ──────────
   nginx:
     image: nginx:stable
@@ -235,6 +278,8 @@ services:
       - signed_panel
       - xcut_frontend
       - xcut_backend
+      - signage_panel
+      - signage_api
     volumes:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
@@ -252,6 +297,8 @@ volumes:
   signed_pgdata:
   xcut_pgdata:
   xcut_uploads:
+  signage_pgdata:
+  signage_uploads:
 
 networks:
   default:
