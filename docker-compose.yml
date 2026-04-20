@@ -142,6 +142,10 @@ services:
       ADMIN_PASSWORD: ${SIGNED_ADMIN_PASS:-changeme}
       PUBLIC_URL: https://signed.xshield.com.tr
       PORTAL_TOKEN_HOURS: "48"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
     depends_on:
       signed_db:
         condition: service_healthy
@@ -154,6 +158,8 @@ services:
     restart: unless-stopped
     environment:
       API_URL: http://signed_api:5000
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
     depends_on:
       - signed_api
 
