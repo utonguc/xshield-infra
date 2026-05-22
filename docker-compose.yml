@@ -200,6 +200,13 @@ services:
       Smtp__Password: ${SMTP_PASS:-}
       Smtp__FromAddress: ${SMTP_FROM:-}
       Smtp__FromName: ${SMTP_FROM_NAME:-xCut}
+      Fail2ban__BridgeUrl: http://host.docker.internal:7655
+      Fail2ban__BridgeToken: ${FAIL2BAN_TOKEN:-xcut-f2b-bridge-2026}
+      Facebook__AppId: "1627110575009127"
+      Facebook__AppSecret: ${FB_APP_SECRET}
+      FrontendUrl: https://xcut.xshield.com.tr
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       xcut_db:
         condition: service_healthy
@@ -211,14 +218,27 @@ services:
       context: ../xcut/frontend
       args:
         NEXT_PUBLIC_API_BASE_URL: https://xcut.xshield.com.tr/api
-        NEXT_PUBLIC_BUILD_VERSION: v1.0.0
+        NEXT_PUBLIC_BUILD_VERSION: v1.1.0
+        NEXT_PUBLIC_FB_APP_ID: "1627110575009127"
+        NEXT_PUBLIC_FB_CONFIG_ID: "958002593808849"
     container_name: xcut_frontend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_BASE_URL: https://xcut.xshield.com.tr/api
       API_BASE_URL: http://xcut_backend:8080/api
+      INTERNAL_API_URL: http://xcut_backend:8080/api
       GROQ_API_KEY: ${GROQ_API_KEY:-}
+      NEXT_PUBLIC_FB_APP_ID: "1627110575009127"
+      NEXT_PUBLIC_FB_CONFIG_ID: "958002593808849"
+      FACEBOOK_APP_SECRET: ${FB_APP_SECRET}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SSL:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_NAME: xCut
     depends_on:
       - xcut_backend
 
@@ -282,6 +302,7 @@ services:
       - signage_api
     volumes:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - /var/log/xshield-nginx:/var/log/nginx
       - ./nginx/ssl:/etc/nginx/ssl:ro
     ports:
       - "80:80"
