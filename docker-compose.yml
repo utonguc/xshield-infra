@@ -9,6 +9,8 @@ version: "3.9"
 #    ~/xshield/signed/   ← utonguc/signed        (Signed ürünü)
 #    ~/xshield/xcut/     ← utonguc/xcut          (xCut ürünü)
 #    ~/xshield/mng/      ← utonguc/xshield-mng   (mng.xshield.com.tr)
+#    ~/xshield/gox/      ← utonguc/xshield       (gox.xshield.com.tr, nested)
+#    ~/xshield/pekiyi/   ← utonguc/pekiyi        (pekiyi.net + portal.pekiyi.net)
 #    ~/xshield/infra/    ← utonguc/xshield-infra (bu dosya)
 #
 #  Yeni ürün eklemek için:
@@ -456,6 +458,60 @@ services:
       - gox_radius
       - gox_db
 
+  # ── Pekiyi (çok kiracılı okul yönetim SaaS'ı) ──
+  pekiyi_db:
+    image: postgres:16
+    container_name: pekiyi_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PEKIYI_DB_NAME:-pekiyidb}
+      POSTGRES_USER: ${PEKIYI_DB_USER:-pekiyi}
+      POSTGRES_PASSWORD: ${PEKIYI_DB_PASS:-pekiyi_pass}
+    volumes:
+      - pekiyi_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PEKIYI_DB_USER:-pekiyi} -d ${PEKIYI_DB_NAME:-pekiyidb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pekiyi_backend:
+    build:
+      context: ../pekiyi/backend/Pekiyi.Api
+    container_name: pekiyi_backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=pekiyi_db;Port=5432;Database=${PEKIYI_DB_NAME:-pekiyidb};Username=${PEKIYI_DB_USER:-pekiyi};Password=${PEKIYI_DB_PASS:-pekiyi_pass}
+      Jwt__Key: ${PEKIYI_JWT_KEY}
+      Jwt__Issuer: pekiyi-platform
+      Jwt__Audience: pekiyi-platform-users
+      Jwt__ExpireMinutes: "120"
+      Cors__AllowedOrigins__0: https://portal.pekiyi.net
+    depends_on:
+      pekiyi_db:
+        condition: service_healthy
+
+  pekiyi_frontend:
+    build:
+      context: ../pekiyi/frontend/pekiyi-web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: https://portal.pekiyi.net/api
+    container_name: pekiyi_frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: https://portal.pekiyi.net/api
+    depends_on:
+      - pekiyi_backend
+
+  pekiyi_landing:
+    build:
+      context: ../pekiyi/landing
+    container_name: pekiyi_landing
+    restart: unless-stopped
+
   # ── nginx (ortak reverse proxy) ──────────
   nginx:
     image: nginx:stable
@@ -473,6 +529,9 @@ services:
       - signage_api
       - gox_api
       - gox_panel
+      - pekiyi_frontend
+      - pekiyi_backend
+      - pekiyi_landing
     volumes:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - /var/log/xshield-nginx:/var/log/nginx
@@ -498,6 +557,7 @@ volumes:
   mng_pgdata:
   gox_pgdata:
   gox_wg_data:
+  pekiyi_pgdata:
 
 networks:
   default:
