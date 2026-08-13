@@ -1,0 +1,15 @@
+[Unit]
+Description=Fail2ban HTTP Bridge for xCut SA Panel
+After=fail2ban.service network.target
+Requires=fail2ban.service
+
+[Service]
+Type=simple
+User=root
+Environment=FAIL2BAN_TOKEN=xcut-f2b-bridge-2026
+ExecStart=/usr/bin/python3 /opt/fail2ban-bridge/server.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

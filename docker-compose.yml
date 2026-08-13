@@ -8,6 +8,7 @@ version: "3.9"
 #    ~/xshield/eclinic/  ← utonguc/eclinic       (e-Clinic ürünü)
 #    ~/xshield/signed/   ← utonguc/signed        (Signed ürünü)
 #    ~/xshield/xcut/     ← utonguc/xcut          (xCut ürünü)
+#    ~/xshield/mng/      ← utonguc/xshield-mng   (mng.xshield.com.tr)
 #    ~/xshield/infra/    ← utonguc/xshield-infra (bu dosya)
 #
 #  Yeni ürün eklemek için:
@@ -97,8 +98,17 @@ services:
       context: ../web
     container_name: xshield_web
     restart: unless-stopped
+    volumes:
+      - /home/rootx/xshield/data:/app/data
     environment:
       NODE_ENV: production
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SSL: ${SMTP_SSL:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-xShield}
 
   # ── Signed Landing ────────────────────────
   signed_landing:
@@ -204,6 +214,7 @@ services:
       Fail2ban__BridgeToken: ${FAIL2BAN_TOKEN:-xcut-f2b-bridge-2026}
       Facebook__AppId: "1627110575009127"
       Facebook__AppSecret: ${FB_APP_SECRET}
+      Instagram__WebhookVerifyToken: ${INSTAGRAM_VERIFY_TOKEN:-xcut-ig-verify-2026}
       FrontendUrl: https://xcut.xshield.com.tr
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -241,6 +252,63 @@ services:
       SMTP_FROM_NAME: xCut
     depends_on:
       - xcut_backend
+
+  # ── xShield MNG ───────────────────────────
+  mng_db:
+    image: postgres:16
+    container_name: mng_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${MNG_DB_NAME:-mngdb}
+      POSTGRES_USER: ${MNG_DB_USER:-mnguser}
+      POSTGRES_PASSWORD: ${MNG_DB_PASS:-mngpass}
+    volumes:
+      - mng_pgdata:/var/lib/postgresql/data
+      - ../mng/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ../mng/db/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MNG_DB_USER:-mnguser} -d ${MNG_DB_NAME:-mngdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  xshield_mng:
+    build:
+      context: ../mng
+    container_name: xshield_mng
+    restart: unless-stopped
+    security_opt:
+      - seccomp=unconfined
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${MNG_DB_USER:-mnguser}:${MNG_DB_PASS:-mngpass}@mng_db:5432/${MNG_DB_NAME:-mngdb}
+      JWT_SECRET: ${MNG_JWT_SECRET}
+      IMAP_HOST: ${MNG_IMAP_HOST:-srvc217.trwww.com}
+      IMAP_PORT: ${MNG_IMAP_PORT:-993}
+      IMAP_USER: ${MNG_IMAP_USER:-support@xshield.com.tr}
+      IMAP_PASS: ${MNG_IMAP_PASS}
+      IMAP_POLL_KEY: ${MNG_POLL_KEY}
+      SMTP_HOST: ${MNG_IMAP_HOST:-srvc217.trwww.com}
+      SMTP_PORT: 465
+      SMTP_USER: ${MNG_IMAP_USER:-support@xshield.com.tr}
+      SMTP_PASS: ${MNG_IMAP_PASS}
+      PORTAL_SMTP_USER: ${MNG_NOREPLY_USER:-noreply@xshield.com.tr}
+      PORTAL_SMTP_PASS: ${MNG_NOREPLY_PASS}
+      UPTIME_CHECK_SECRET: ${UPTIME_CHECK_SECRET}
+      VAULT_SECRET: ${MNG_VAULT_SECRET}
+      EREM_BAYI: ${EREM_BAYI:-}
+      EREM_USER: ${EREM_USER:-}
+      EREM_PASS: ${EREM_PASS:-}
+    ports:
+      - "127.0.0.1:13000:3000"
+    cap_add:
+      - NET_RAW
+      - SYS_ADMIN
+    volumes:
+      - mng_uploads:/app/uploads
+    depends_on:
+      mng_db:
+        condition: service_healthy
 
   # ── xSignage ──────────────────────────────
   signage_db:
@@ -285,6 +353,109 @@ services:
     depends_on:
       - signage_api
 
+  # ── goX (gox.xshield.com.tr) ──────────────
+  gox_db:
+    image: postgres:16
+    container_name: gox_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${GOX_DB_NAME:-goxdb}
+      POSTGRES_USER: ${GOX_DB_USER:-goxuser}
+      POSTGRES_PASSWORD: ${GOX_DB_PASS:-goxpass}
+    volumes:
+      - gox_pgdata:/var/lib/postgresql/data
+      - ../gox/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${GOX_DB_USER:-goxuser} -d ${GOX_DB_NAME:-goxdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  gox_api:
+    build:
+      context: ../gox/api
+      args:
+        VERSION: v0.1.0
+    container_name: gox_api
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgresql://${GOX_DB_USER:-goxuser}:${GOX_DB_PASS:-goxpass}@gox_db:5432/${GOX_DB_NAME:-goxdb}
+      GOX_JWT_SECRET: ${GOX_JWT_SECRET}
+      GOX_OWNER_EMAIL: ${GOX_OWNER_EMAIL:-}
+      GOX_OWNER_PASSWORD: ${GOX_OWNER_PASSWORD:-}
+      GOX_WG_ENDPOINT: ${GOX_WG_ENDPOINT:-77.223.130.51:443}
+      GOX_RADIUS_SECRET: ${GOX_RADIUS_SECRET:-goxradius}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SSL: ${SMTP_SSL:-true}
+      SMTP_USER: ${MNG_NOREPLY_USER:-noreply@xshield.com.tr}
+      SMTP_PASS: ${MNG_NOREPLY_PASS}
+      SMTP_FROM: ${MNG_NOREPLY_USER:-noreply@xshield.com.tr}
+      GOX_MAIL_FROM_NAME: ${GOX_MAIL_FROM_NAME:-goX Misafir Wi-Fi}
+      GOX_WA_NUMBER: ${GOX_WA_NUMBER:-}
+      GOX_WA_VERIFY_TOKEN: ${GOX_WA_VERIFY_TOKEN:-}
+      GOX_WA_TOKEN: ${GOX_WA_TOKEN:-}
+      GOX_WA_PHONE_ID: ${GOX_WA_PHONE_ID:-}
+    depends_on:
+      gox_db:
+        condition: service_healthy
+
+  gox_panel:
+    build:
+      context: ../gox/panel
+    container_name: gox_panel
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      ORIGIN: https://gox.xshield.com.tr
+      PORT: "3000"
+      GOX_API_INTERNAL_URL: http://gox_api:8080
+      GOX_JWT_SECRET: ${GOX_JWT_SECRET}
+    depends_on:
+      - gox_api
+
+  gox_radius:
+    build:
+      context: ../gox/radius
+    container_name: gox_radius
+    restart: unless-stopped
+    environment:
+      GOX_DB_HOST: gox_db
+      GOX_DB_PORT: "5432"
+      GOX_DB_NAME: ${GOX_DB_NAME:-goxdb}
+      GOX_DB_USER: ${GOX_DB_USER:-goxuser}
+      GOX_DB_PASS: ${GOX_DB_PASS:-goxpass}
+    depends_on:
+      gox_db:
+        condition: service_healthy
+
+  gox_wg:
+    build:
+      context: ../gox/wg
+    container_name: gox_wg
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    environment:
+      GOX_DB_HOST: gox_db
+      GOX_DB_NAME: ${GOX_DB_NAME:-goxdb}
+      GOX_DB_USER: ${GOX_DB_USER:-goxuser}
+      GOX_DB_PASS: ${GOX_DB_PASS:-goxpass}
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "443:443/udp"
+    volumes:
+      - gox_wg_data:/etc/wireguard
+    depends_on:
+      - gox_radius
+      - gox_db
+
   # ── nginx (ortak reverse proxy) ──────────
   nginx:
     image: nginx:stable
@@ -300,6 +471,8 @@ services:
       - xcut_backend
       - signage_panel
       - signage_api
+      - gox_api
+      - gox_panel
     volumes:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - /var/log/xshield-nginx:/var/log/nginx
@@ -307,6 +480,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8088:8088"
 
 volumes:
   eclinic_postgres_data:
@@ -319,7 +493,11 @@ volumes:
   xcut_pgdata:
   xcut_uploads:
   signage_pgdata:
+  mng_uploads:
   signage_uploads:
+  mng_pgdata:
+  gox_pgdata:
+  gox_wg_data:
 
 networks:
   default:
