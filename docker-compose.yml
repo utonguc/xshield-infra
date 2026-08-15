@@ -489,7 +489,10 @@ services:
       Jwt__Audience: pekiyi-platform-users
       Jwt__ExpireMinutes: "120"
       Vault__Key: ${PEKIYI_VAULT_KEY}
+      Storage__Root: /app/storage
       Cors__AllowedOrigins__0: https://portal.pekiyi.net
+    volumes:
+      - pekiyi_storage:/app/storage
     depends_on:
       pekiyi_db:
         condition: service_healthy
@@ -588,6 +591,7 @@ volumes:
   gox_pgdata:
   gox_wg_data:
   pekiyi_pgdata:
+  pekiyi_storage:
   umami_pgdata:
 
 networks:
