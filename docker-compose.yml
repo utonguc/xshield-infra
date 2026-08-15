@@ -488,6 +488,7 @@ services:
       Jwt__Issuer: pekiyi-platform
       Jwt__Audience: pekiyi-platform-users
       Jwt__ExpireMinutes: "120"
+      Vault__Key: ${PEKIYI_VAULT_KEY}
       Cors__AllowedOrigins__0: https://portal.pekiyi.net
     depends_on:
       pekiyi_db:
