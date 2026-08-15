@@ -512,6 +512,34 @@ services:
     container_name: pekiyi_landing
     restart: unless-stopped
 
+  # ── Umami (self-hosted, gizlilik-dostu analytics — Pekiyi landing sayfası için) ──
+  umami_db:
+    image: postgres:16
+    container_name: umami_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASS}
+    volumes:
+      - umami_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    container_name: umami
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASS}@umami_db:5432/umami
+      APP_SECRET: ${UMAMI_APP_SECRET}
+    depends_on:
+      umami_db:
+        condition: service_healthy
+
   # ── nginx (ortak reverse proxy) ──────────
   nginx:
     image: nginx:stable
@@ -532,6 +560,7 @@ services:
       - pekiyi_frontend
       - pekiyi_backend
       - pekiyi_landing
+      - umami
     volumes:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - /var/log/xshield-nginx:/var/log/nginx
@@ -558,6 +587,7 @@ volumes:
   gox_pgdata:
   gox_wg_data:
   pekiyi_pgdata:
+  umami_pgdata:
 
 networks:
   default:
