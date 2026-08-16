@@ -491,6 +491,15 @@ services:
       Vault__Key: ${PEKIYI_VAULT_KEY}
       Storage__Root: /app/storage
       Cors__AllowedOrigins__0: https://portal.pekiyi.net
+      # Parola sıfırlama e-postaları — bu VPS'teki diğer xShield ürünleriyle aynı
+      # paylaşımlı SMTP hesabı (bkz. .env), yeni bir posta kutusu gerekmedi.
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-465}
+      Smtp__UseSsl: ${SMTP_SSL:-true}
+      Smtp__UserName: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASS:-}
+      Smtp__FromAddress: ${SMTP_FROM:-}
+      Smtp__FromName: Pekiyi
     volumes:
       - pekiyi_storage:/app/storage
     depends_on:
