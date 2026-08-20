@@ -500,6 +500,12 @@ services:
       Smtp__Password: ${SMTP_PASS:-}
       Smtp__FromAddress: ${SMTP_FROM:-}
       Smtp__FromName: Pekiyi
+      # Push bildirimleri (VAPID) — Public key frontend'e GET /api/push/public-key
+      # üzerinden servis edilir, ayrı bir NEXT_PUBLIC_ env değişkeni/rebuild
+      # gerekmez. Anahtarlar bu VPS'e özel, tek seferlik üretildi (bkz. .env).
+      Vapid__PublicKey: ${PEKIYI_VAPID_PUBLIC_KEY}
+      Vapid__PrivateKey: ${PEKIYI_VAPID_PRIVATE_KEY}
+      Vapid__Subject: mailto:destek@pekiyi.net
     volumes:
       - pekiyi_storage:/app/storage
     depends_on:
