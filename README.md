@@ -6,7 +6,7 @@ Tüm xShield servislerini tek noktadan yöneten nginx + docker-compose orchestra
 
 ```
 ~/xshield/
-├── web/        → git clone utonguc/xshield-web
+├── web/        → git clone utonguc/xshield-web   (pet/ → xShield Pet, pet.xshield.com.tr)
 ├── eclinic/    → git clone utonguc/eclinic
 ├── signed/     → git clone utonguc/signed
 ├── hotspot/    → git clone utonguc/xshield-hotspot  (yakında)
