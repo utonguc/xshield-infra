@@ -531,6 +531,50 @@ services:
     container_name: pekiyi_landing
     restart: unless-stopped
 
+  # ── xShield Pet — petshoplar için çok kiracılı online mağaza + stok (pet.xshield.com.tr) ──
+  # Kaynak: xshield reposundaki pet/ klasörü; pet-push.sh ile ~/xshield/pet-app'e yüklenir
+  # (web klasöründen bağımsız). Migration'lar konteyner açılışında otomatik uygulanır.
+  pet_db:
+    image: postgres:16
+    container_name: pet_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PET_DB_NAME:-petdb}
+      POSTGRES_USER: ${PET_DB_USER:-pet}
+      POSTGRES_PASSWORD: ${PET_DB_PASS:-pet_pass}
+    volumes:
+      - pet_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PET_DB_USER:-pet} -d ${PET_DB_NAME:-petdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pet_app:
+    build:
+      context: ../pet-app
+    container_name: pet_app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${PET_DB_USER:-pet}:${PET_DB_PASS:-pet_pass}@pet_db:5432/${PET_DB_NAME:-petdb}
+      APP_URL: https://pet.xshield.com.tr
+      UPLOAD_DIR: /app/uploads
+      # /yonetim (platform yönetimi) ekranına girebilecek e-postalar, virgülle ayrılmış
+      ADMIN_EMAILS: ${PET_ADMIN_EMAILS:-}
+      # Kendi alan adı: sync-pet-domains.sh bu token ile doğrulanmış alan adlarını okur
+      PET_INTERNAL_TOKEN: ${PET_INTERNAL_TOKEN:-}
+      # Müşterinin CNAME ile yönlendireceği adres (Cloudflare for SaaS fallback origin)
+      CUSTOM_DOMAIN_TARGET: ${PET_CUSTOM_DOMAIN_TARGET:-pet.xshield.com.tr}
+      # İsteğe bağlı: tanımlıysa doğrulanan alan adları Cloudflare'e otomatik eklenir, SSL otomatik üretilir
+      CF_API_TOKEN: ${PET_CF_API_TOKEN:-}
+      CF_ZONE_ID: ${PET_CF_ZONE_ID:-}
+    volumes:
+      - pet_uploads:/app/uploads
+    depends_on:
+      pet_db:
+        condition: service_healthy
+
   # ── Umami (self-hosted, gizlilik-dostu analytics — Pekiyi landing sayfası için) ──
   umami_db:
     image: postgres:16
@@ -584,6 +628,7 @@ services:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - /var/log/xshield-nginx:/var/log/nginx
       - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/pet-domains:/etc/nginx/pet-domains:ro
     ports:
       - "80:80"
       - "443:443"
@@ -608,6 +653,8 @@ volumes:
   pekiyi_pgdata:
   pekiyi_storage:
   umami_pgdata:
+  pet_pgdata:
+  pet_uploads:
 
 networks:
   default:
