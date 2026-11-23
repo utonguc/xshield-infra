@@ -6,7 +6,8 @@ Tüm xShield servislerini tek noktadan yöneten nginx + docker-compose orchestra
 
 ```
 ~/xshield/
-├── web/        → git clone utonguc/xshield-web   (pet/ → xShield Pet, pet.xshield.com.tr)
+├── web/        → git clone utonguc/xshield-web
+├── pet-app/    → xShield Pet (pet.xshield.com.tr) — xshield reposundaki pet/, pet-push.sh ile yüklenir
 ├── eclinic/    → git clone utonguc/eclinic
 ├── signed/     → git clone utonguc/signed
 ├── hotspot/    → git clone utonguc/xshield-hotspot  (yakında)
@@ -60,10 +61,8 @@ Bir kez kurulum:
 
 ```bash
 # .env: PET_INTERNAL_TOKEN=$(openssl rand -hex 24)  ve gerekirse PET_CF_API_TOKEN / PET_CF_ZONE_ID
-docker compose --env-file .env up -d --build pet_app
-docker compose --env-file .env up -d --force-recreate nginx   # pet-domains volume'u için
-sudo crontab -e
-# */2 * * * * /home/rootx/xshield/infra/sync-pet-domains.sh >> /var/log/xshield-pet-domains.log 2>&1
+# Geliştirme bilgisayarından (kodu yükler, .env'i tamamlar, derler, nginx'i yeniler, cron'u kurar):
+./pet-push.sh
 ```
 
 SSL için Cloudflare'de **SSL/TLS → Custom Hostnames** (Cloudflare for SaaS) etkinleştirilir ve fallback origin

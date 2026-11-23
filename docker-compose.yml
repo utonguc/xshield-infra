@@ -532,7 +532,8 @@ services:
     restart: unless-stopped
 
   # ── xShield Pet — petshoplar için çok kiracılı online mağaza + stok (pet.xshield.com.tr) ──
-  # Kaynak: xshield reposundaki pet/ klasörü (~/xshield/web/pet). Migration'lar konteyner açılışında otomatik uygulanır.
+  # Kaynak: xshield reposundaki pet/ klasörü; pet-push.sh ile ~/xshield/pet-app'e yüklenir
+  # (web klasöründen bağımsız). Migration'lar konteyner açılışında otomatik uygulanır.
   pet_db:
     image: postgres:16
     container_name: pet_db
@@ -551,7 +552,7 @@ services:
 
   pet_app:
     build:
-      context: ../web/pet
+      context: ../pet-app
     container_name: pet_app
     restart: unless-stopped
     environment:

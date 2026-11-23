@@ -1,41 +1,25 @@
 #!/bin/bash
-# xShield Pet (pet.xshield.com.tr) — VPS'te tek komutla kurulum / güncelleme.
-#
-#   cd ~/xshield/infra && ./deploy-pet.sh
-#   (birleştirmeden önce branch'ten denemek için: BRANCH=claude/petshop-tenant-platform-34w53o ./deploy-pet.sh)
+# xShield Pet (pet.xshield.com.tr) — VPS'te kurulum / güncelleme. Genelde geliştirme bilgisayarından
+# ./pet-push.sh ile çağrılır (kodu ~/xshield/pet-app'e yükleyip bunu çalıştırır).
 #
 # Ne yapar (tekrar çalıştırmak güvenlidir):
-#   1. infra ve web repolarını günceller
+#   1. ~/xshield/pet-app'te kodun olduğunu kontrol eder
 #   2. .env'de eksik PET_* değişkenlerini üretir (var olanlara dokunmaz, önce yedek alır)
 #   3. pet_db + pet_app'i derleyip başlatır (migration'lar açılışta otomatik)
 #   4. nginx'i yeni yapılandırmayla yeniden oluşturur (önce nginx -t)
 #   5. Alan adı senkron betiğini cron'a ekler
 set -euo pipefail
 
-BRANCH=${BRANCH:-main}
 INFRA_DIR="$(cd "$(dirname "$0")" && pwd)"
-WEB_DIR="$(cd "$INFRA_DIR/../web" && pwd)"
+APP_DIR="$INFRA_DIR/../pet-app"
 ENV_FILE="$INFRA_DIR/.env"
 
 step() { echo; echo "==> $*"; }
 fail() { echo "✗ $*" >&2; exit 1; }
 
-update_repo() {
-  local dir=$1
-  cd "$dir"
-  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-    fail "$dir içinde commitlenmemiş değişiklik var; önce onları halledin (git status)."
-  fi
-  git fetch origin "$BRANCH"
-  git checkout -q "$BRANCH" 2>/dev/null || git checkout -q -b "$BRANCH" "origin/$BRANCH"
-  git merge --ff-only "origin/$BRANCH"
-  echo "   $(basename "$dir"): $(git log --oneline -1)"
-}
-
-step "[1/5] Repolar güncelleniyor (branch: $BRANCH)"
-update_repo "$INFRA_DIR"
-update_repo "$WEB_DIR"
-[ -f "$WEB_DIR/pet/Dockerfile" ] || fail "$WEB_DIR/pet bulunamadı — web reposu doğru branch'te mi?"
+step "[1/5] Kod kontrol ediliyor"
+[ -f "$APP_DIR/Dockerfile" ] || fail "$APP_DIR bulunamadı — önce geliştirme bilgisayarından ./pet-push.sh çalıştırın."
+echo "   pet-app: $(cat "$APP_DIR/.deployed-rev" 2>/dev/null || echo 'sürüm bilinmiyor')"
 
 step "[2/5] .env kontrol ediliyor"
 [ -f "$ENV_FILE" ] || fail "$ENV_FILE yok."
