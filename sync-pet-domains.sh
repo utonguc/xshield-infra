@@ -5,8 +5,8 @@
 # yalnızca değişiklik varsa `nginx -t` ile test edip nginx'i yeniden yükler. Hata olursa eski
 # dosyaya döner. Tekrar çalıştırmak güvenlidir.
 #
-# Kurulum (VPS, root crontab — her 2 dakikada bir):
-#   */2 * * * * /home/rootx/xshield/infra/sync-pet-domains.sh >> /var/log/xshield-pet-domains.log 2>&1
+# Kurulum: deploy-pet.sh cron'a ekler (her 2 dakikada bir, log: logs/pet-domains.log).
+# Log yolu çalıştıran kullanıcının yazabileceği bir yer olmalı; yoksa cron sessizce hiç çalıştırmaz.
 set -euo pipefail
 
 cd "$(dirname "$0")"

@@ -62,9 +62,15 @@ echo "   nginx tamam."
 
 step "[5/5] Alan adı senkronu (cron)"
 chmod +x "$INFRA_DIR/sync-pet-domains.sh"
-CRON_LINE="*/2 * * * * $INFRA_DIR/sync-pet-domains.sh >> /var/log/xshield-pet-domains.log 2>&1"
-if crontab -l 2>/dev/null | grep -qF "sync-pet-domains.sh"; then
+# Log, betiği çalıştıran kullanıcının yazabileceği yerde olmalı: /var/log'a yazamazsa cron
+# satırı yönlendirmede düşer ve betik hiç çalışmaz (sessizce).
+mkdir -p "$INFRA_DIR/logs"
+CRON_LINE="*/2 * * * * $INFRA_DIR/sync-pet-domains.sh >> $INFRA_DIR/logs/pet-domains.log 2>&1"
+if crontab -l 2>/dev/null | grep -qF "$CRON_LINE"; then
   echo "   cron zaten kurulu."
+elif crontab -l 2>/dev/null | grep -qF "sync-pet-domains.sh"; then
+  (crontab -l | grep -vF "sync-pet-domains.sh"; echo "$CRON_LINE") | crontab -
+  echo "   cron satırı güncellendi (log: logs/pet-domains.log)."
 else
   (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
   echo "   cron eklendi."
