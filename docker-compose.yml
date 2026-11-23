@@ -561,6 +561,13 @@ services:
       UPLOAD_DIR: /app/uploads
       # /yonetim (platform yönetimi) ekranına girebilecek e-postalar, virgülle ayrılmış
       ADMIN_EMAILS: ${PET_ADMIN_EMAILS:-}
+      # Kendi alan adı: sync-pet-domains.sh bu token ile doğrulanmış alan adlarını okur
+      PET_INTERNAL_TOKEN: ${PET_INTERNAL_TOKEN:-}
+      # Müşterinin CNAME ile yönlendireceği adres (Cloudflare for SaaS fallback origin)
+      CUSTOM_DOMAIN_TARGET: ${PET_CUSTOM_DOMAIN_TARGET:-pet.xshield.com.tr}
+      # İsteğe bağlı: tanımlıysa doğrulanan alan adları Cloudflare'e otomatik eklenir, SSL otomatik üretilir
+      CF_API_TOKEN: ${PET_CF_API_TOKEN:-}
+      CF_ZONE_ID: ${PET_CF_ZONE_ID:-}
     volumes:
       - pet_uploads:/app/uploads
     depends_on:
@@ -620,6 +627,7 @@ services:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - /var/log/xshield-nginx:/var/log/nginx
       - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/pet-domains:/etc/nginx/pet-domains:ro
     ports:
       - "80:80"
       - "443:443"

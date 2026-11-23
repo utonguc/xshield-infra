@@ -2,3 +2,4 @@
 nginx/ssl/
 *.bak*
 *.bak-*
+nginx/pet-domains/*.conf
