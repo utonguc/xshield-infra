@@ -6,7 +6,7 @@
 #   1. ~/xshield/pet-app'te kodun olduğunu kontrol eder
 #   2. .env'de eksik PET_* değişkenlerini üretir (var olanlara dokunmaz, önce yedek alır)
 #   3. pet_db + pet_app'i derleyip başlatır (migration'lar açılışta otomatik)
-#   4. nginx'i yeni yapılandırmayla yeniden oluşturur (önce nginx -t)
+#   4. nginx yapılandırmasını test edip yeniden yükler (gerekmedikçe konteyneri yeniden oluşturmaz)
 #   5. Alan adı senkron betiğini cron'a ekler
 set -euo pipefail
 
@@ -52,9 +52,12 @@ for i in $(seq 1 60); do
 done
 
 step "[4/5] nginx yenileniyor"
-docker compose --env-file .env up -d --no-deps --force-recreate nginx
+# Konteyner yalnızca compose ayarı (ör. yeni volume) değiştiyse yeniden oluşturulur;
+# aksi halde prod.conf değişiklikleri kesintisiz reload ile alınır.
+docker compose --env-file .env up -d --no-deps nginx
 sleep 2
 docker exec xshield_nginx nginx -t || fail "nginx yapılandırması hatalı — 'docker logs xshield_nginx' ile bakın."
+docker exec xshield_nginx nginx -s reload
 echo "   nginx tamam."
 
 step "[5/5] Alan adı senkronu (cron)"
